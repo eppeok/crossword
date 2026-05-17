@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Crossword Puzzle</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#06090f;--card:#0c1220;--border:#1a2840;--text:#e2e8f0;--dim:#64748b;--sub:#94a3b8;--blue:#3b82f6;--green:#22c55e;--yellow:#f59e0b;--purple:#a78bfa;--red:#ef4444}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+#stars{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle var(--d,3s) var(--delay,0s) infinite alternate}
+@keyframes twinkle{from{opacity:.1}to{opacity:.6}}
+nav{position:sticky;top:0;z-index:100;background:#06090fee;backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:10px;height:56px}
+.nav-back{font-size:.8rem;font-weight:700;color:var(--dim);text-decoration:none;padding:5px 12px;border:1px solid var(--border);border-radius:20px;transition:color .2s}
+.nav-back:hover{color:var(--text)}
+.nav-title{font-size:1.1rem;font-weight:900;color:var(--purple)}
+.page{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:28px 16px}
+h1{font-size:2rem;font-weight:900;margin-bottom:6px}
+.sub{color:var(--sub);margin-bottom:20px}
+
+/* Topic selector */
+.topic-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.topic-btn{padding:8px 16px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--sub);font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s}
+.topic-btn.active{border-color:var(--purple);color:var(--purple);background:#130f20}
+.topic-btn:hover{border-color:var(--sub)}
+
+/* Layout */
+.puzzle-layout{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start}
+@media(max-width:720px){.puzzle-layout{grid-template-columns:1fr}}
+
+/* Grid */
+.grid-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:inline-block;width:100%}
+#cw-grid{display:inline-grid;border:2px solid var(--border);border-radius:6px;overflow:hidden;user-select:none}
+.cw-cell{width:36px;height:36px;position:relative;border:1px solid var(--border)}
+@media(max-width:500px){.cw-cell{width:28px;height:28px}}
+.cw-cell.black{background:#000}
+.cw-cell.white{background:#0a1220;cursor:pointer}
+.cw-cell.active{background:#0a1e3a!important}
+.cw-cell.highlight{background:#0d1e34!important}
+.cw-cell.correct{background:#0a2015!important}
+.cw-cell.wrong{background:#2a0a0a!important}
+.cw-cell input{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:none;outline:none;color:#e2e8f0;font-size:1rem;font-weight:700;text-align:center;text-transform:uppercase;cursor:pointer;caret-color:transparent;font-family:inherit}
+.cw-cell.correct input{color:var(--green)}
+.cw-cell.wrong input{color:var(--red)}
+.cell-num{position:absolute;top:2px;left:2px;font-size:.45rem;color:var(--dim);font-weight:700;pointer-events:none;line-height:1}
+
+/* Clues panel */
+.clues-panel{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px}
+.clues-title{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--dim);margin-bottom:10px}
+.clues-section{margin-bottom:14px}
+.dir-label{font-size:.75rem;font-weight:800;color:var(--purple);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.clue-item{font-size:.82rem;color:var(--sub);padding:5px 8px;border-radius:8px;cursor:pointer;transition:background .15s;line-height:1.4}
+.clue-item:hover{background:#0a1428;color:var(--text)}
+.clue-item.active-clue{background:#0a1428;color:var(--text)}
+.clue-item.solved{color:var(--dim);text-decoration:line-through}
+.clue-num{font-weight:700;color:var(--purple);margin-right:4px}
+
+/* Controls */
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.ctrl-btn{padding:9px 18px;border-radius:50px;border:none;font-weight:700;font-size:.85rem;cursor:pointer;transition:all .2s}
+.ctrl-btn:hover{transform:translateY(-1px)}
+.ctrl-btn.primary{background:linear-gradient(135deg,var(--purple),#7c3aed);color:#fff}
+.ctrl-btn.ghost{background:var(--card);border:1px solid var(--border);color:var(--text)}
+.ctrl-btn.check-btn{background:var(--card);border:1px solid var(--green);color:var(--green)}
+
+/* Progress */
+.progress-info{display:flex;align-items:center;gap:10px;margin-top:14px;font-size:.82rem;color:var(--sub)}
+.prog-bar{flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--blue));border-radius:3px;transition:width .4s}
+
+/* Win overlay */
+.win-overlay{display:none;position:fixed;inset:0;background:#000b;z-index:200;align-items:center;justify-content:center}
+.win-overlay.show{display:flex}
+.win-box{background:var(--card);border:1px solid var(--border);border-radius:24px;padding:40px;text-align:center;max-width:380px;width:90%}
+.win-emoji{font-size:3.5rem;margin-bottom:12px}
+.win-title{font-size:1.8rem;font-weight:900;margin-bottom:8px;color:var(--purple)}
+.win-sub{color:var(--sub);margin-bottom:24px}
+</style>
+</head>
+<body>
+<div id="stars"></div>
+<nav>
+  <a href="https://eppeok.github.io" class="nav-back">← All Tools</a>
+  <div class="nav-title">🔲 Crossword</div>
+</nav>
+<div class="page">
+  <h1>🔲 Crossword Puzzle</h1>
+  <p class="sub">Solve the clues across and down to complete the puzzle.</p>
+
+  <div class="topic-bar" id="topic-bar">
+    <button class="topic-btn active" data-topic="animals" onclick="pickTopic(this)">🐾 Animals</button>
+    <button class="topic-btn" data-topic="science" onclick="pickTopic(this)">🔬 Science</button>
+    <button class="topic-btn" data-topic="geography" onclick="pickTopic(this)">🌍 Geography</button>
+    <button class="topic-btn" data-topic="maths" onclick="pickTopic(this)">📐 Maths</button>
+    <button class="topic-btn" data-topic="food" onclick="pickTopic(this)">🍕 Food</button>
+  </div>
+
+  <div class="puzzle-layout">
+    <div>
+      <div class="grid-wrap"><div id="cw-grid"></div></div>
+      <div class="controls">
+        <button class="ctrl-btn primary" onclick="newPuzzle()">🔄 New Puzzle</button>
+        <button class="ctrl-btn check-btn" onclick="checkAll()">✓ Check All</button>
+        <button class="ctrl-btn ghost" onclick="revealAll()">👁 Reveal</button>
+      </div>
+      <div class="progress-info">
+        <span id="prog-text">0 / 0 words</span>
+        <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div>
+      <div class="clues-panel">
+        <div class="clues-title">Clues</div>
+        <div class="clues-section">
+          <div class="dir-label">Across →</div>
+          <div id="clues-across"></div>
+        </div>
+        <div class="clues-section">
+          <div class="dir-label">Down ↓</div>
+          <div id="clues-down"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Win overlay -->
+<div class="win-overlay" id="win-overlay">
+  <div class="win-box">
+    <div class="win-emoji">🏆</div>
+    <div class="win-title">Puzzle Complete!</div>
+    <div class="win-sub" id="win-sub">Amazing work!</div>
+    <button class="ctrl-btn primary" onclick="newPuzzle();document.getElementById('win-overlay').classList.remove('show')" style="width:100%;padding:14px">New Puzzle →</button>
+  </div>
+</div>
+
+<script>
+(()=>{const c=document.getElementById('stars');for(let i=0;i<60;i++){const s=document.createElement('div');s.className='star';const sz=Math.random()*2+1;s.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${2+Math.random()*4}s;--delay:${Math.random()*4}s;opacity:.3`;c.appendChild(s);}})();
+
+// ── Word banks per topic ──────────────────────────────────────────────
+const TOPICS = {
+  animals:[
+    {w:'TIGER',c:'Striped big cat'},
+    {w:'EAGLE',c:'Bird of prey with sharp talons'},
+    {w:'WHALE',c:'Largest animal on Earth'},
+    {w:'ZEBRA',c:'Striped African horse'},
+    {w:'PANDA',c:'Black and white bear from China'},
+    {w:'SHARK',c:'Apex predator of the ocean'},
+    {w:'COBRA',c:'Venomous hooded snake'},
+    {w:'OTTER',c:'Playful river mammal'},
+    {w:'RAVEN',c:'Intelligent black bird'},
+    {w:'BISON',c:'Large North American buffalo'},
+    {w:'LLAMA',c:'South American pack animal'},
+    {w:'HYENA',c:'Scavenging African animal'},
+    {w:'STOAT',c:'Small weasel-like predator'},
+    {w:'TAPIR',c:'Large rainforest mammal with a snout'},
+    {w:'MOOSE',c:'Largest member of the deer family'},
+  ],
+  science:[
+    {w:'SOLAR',c:'Relating to the sun'},
+    {w:'ORBIT',c:'Path of a planet around a star'},
+    {w:'LASER',c:'Concentrated beam of light'},
+    {w:'OZONE',c:'Layer of gas protecting Earth'},
+    {w:'PRISM',c:'Shape that splits white light'},
+    {w:'NERVE',c:'Carries signals in the body'},
+    {w:'MAGMA',c:'Molten rock beneath the crust'},
+    {w:'CLONE',c:'Genetic copy of an organism'},
+    {w:'VIRUS',c:'Tiny infectious agent'},
+    {w:'GENES',c:'Units of heredity in DNA'},
+    {w:'ATOMS',c:'Smallest unit of an element'},
+    {w:'LUNAR',c:'Relating to the moon'},
+    {w:'VENOM',c:'Toxic substance from animals'},
+    {w:'FUNGI',c:'Kingdom including mushrooms'},
+    {w:'RENAL',c:'Relating to the kidneys'},
+  ],
+  geography:[
+    {w:'DELTA',c:'Triangular river mouth'},
+    {w:'FJORD',c:'Long narrow inlet carved by glaciers'},
+    {w:'TUNDRA',c:'Arctic treeless plain'}, // 6
+    {w:'BASIN',c:'Low-lying area drained by a river'},
+    {w:'STEPPE',c:'Flat grassland in Central Asia'}, // 6
+    {w:'RIDGE',c:'Long narrow hilltop'},
+    {w:'CORAL',c:'Ocean reef made by polyps'},
+    {w:'MESA',c:'Flat-topped hill with steep sides'}, // 4
+    {w:'ATOLL',c:'Ring-shaped coral island'},
+    {w:'GORGE',c:'Deep narrow valley'},
+    {w:'POLAR',c:'Relating to the North or South Pole'},
+    {w:'CANAL',c:'Artificial waterway'},
+    {w:'OASIS',c:'Fertile spot in a desert'},
+    {w:'PLAIN',c:'Large flat area of land'},
+    {w:'GLOBE',c:'Spherical map of the Earth'},
+  ],
+  maths:[
+    {w:'PRIME',c:'Number divisible only by 1 and itself'},
+    {w:'RATIO',c:'Comparison of two quantities'},
+    {w:'ANGLE',c:'Space between two lines meeting at a point'},
+    {w:'CHORD',c:'Line segment connecting two points on a circle'},
+    {w:'DIGIT',c:'Single numeral 0-9'},
+    {w:'CUBIC',c:'Raised to the power of three'},
+    {w:'AXIOM',c:'Statement accepted without proof'},
+    {w:'ARRAY',c:'Items arranged in rows and columns'},
+    {w:'EQUAL',c:'Having the same value'},
+    {w:'GRAPH',c:'Visual display of data'},
+    {w:'POWER',c:'Result of multiplying a number by itself'},
+    {w:'ROUND',c:'Approximate to a given place value'},
+    {w:'SCALE',c:'Ratio of map distance to real distance'},
+    {w:'TABLE',c:'Organised rows and columns of data'},
+    {w:'RULER',c:'Straight tool for measuring length'},
+  ],
+  food:[
+    {w:'PASTA',c:'Italian dish made from dough'},
+    {w:'MANGO',c:'Tropical orange-yellow fruit'},
+    {w:'BREAD',c:'Baked dough staple food'},
+    {w:'OLIVE',c:'Small Mediterranean fruit used for oil'},
+    {w:'CREAM',c:'Thick fatty part of milk'},
+    {w:'SUGAR',c:'Sweet crystalline substance'},
+    {w:'SPICE',c:'Aromatic plant used for flavour'},
+    {w:'ONION',c:'Layered bulb vegetable that makes you cry'},
+    {w:'LEMON',c:'Sour yellow citrus fruit'},
+    {w:'GRAVY',c:'Sauce made from meat juices'},
+    {w:'WAFER',c:'Thin crispy biscuit'},
+    {w:'HERBS',c:'Plants used for flavour and medicine'},
+    {w:'CARAMEL',c:'Sweet sauce from cooked sugar'}, // 7
+    {w:'OMELETTE',c:'Beaten egg cooked in a pan'}, // 8 - might be tricky
+    {w:'NUTMEG',c:'Spice used in cakes and custard'}, // 6
+  ]
+};
+
+// ── State ─────────────────────────────────────────────────────────────
+let topic='animals', grid=[], placements=[], ROWS=13, COLS=13;
+let activeCell=null, activeDir='across', activeClueIdx=null;
+let startTime=null;
+
+// ── Topic picker ──────────────────────────────────────────────────────
+function pickTopic(el){
+  document.querySelectorAll('.topic-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  topic=el.dataset.topic;
+  newPuzzle();
+}
+
+// ── Puzzle builder ────────────────────────────────────────────────────
+function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+
+function buildGrid(){
+  // reset
+  grid=Array.from({length:ROWS},()=>Array.from({length:COLS},()=>({black:true,letter:'',guess:'',num:0})));
+  placements=[];
+
+  const words=shuffle(TOPICS[topic]||TOPICS.animals).slice(0,12); // up to 12 words
+
+  // place first word in center horizontally
+  function canPlace(word,r,c,dir){
+    const dr=dir==='down'?1:0,dc=dir==='across'?1:0;
+    for(let i=0;i<word.length;i++){
+      const nr=r+i*dr,nc=c+i*dc;
+      if(nr<0||nr>=ROWS||nc<0||nc>=COLS) return false;
+      const cell=grid[nr][nc];
+      if(cell.black){
+        // cell is empty — check neighbours to avoid parallel words
+        // check perpendicular neighbours
+        const pdr=dc,pdc=dr;
+        if(grid[nr-pdr]&&!grid[nr-pdr][nc-pdc]?.black && (word[i]!==grid[nr-pdr][nc-pdc]?.letter)) return false;
+        if(grid[nr+pdr]&&!grid[nr+pdr][nc+pdc]?.black && (word[i]!==grid[nr+pdr][nc+pdc]?.letter)) return false;
+      } else {
+        if(cell.letter!==word[i]) return false;
+      }
+    }
+    // check cells before and after
+    const br=r-dr,bc=c-dc;
+    if(br>=0&&br<ROWS&&bc>=0&&bc<COLS&&!grid[br][bc].black) return false;
+    const er=r+word.length*dr,ec=c+word.length*dc;
+    if(er>=0&&er<ROWS&&ec>=0&&ec<COLS&&!grid[er][ec].black) return false;
+    return true;
+  }
+
+  function place(word,r,c,dir){
+    const dr=dir==='down'?1:0,dc=dir==='across'?1:0;
+    for(let i=0;i<word.length;i++){
+      grid[r+i*dr][c+i*dc].black=false;
+      grid[r+i*dr][c+i*dc].letter=word[i];
+    }
+    placements.push({word,r,c,dir,clue:'',solved:false});
+  }
+
+  // place first word
+  const first=words[0];
+  const fr=Math.floor(ROWS/2), fc=Math.floor((COLS-first.w.length)/2);
+  place(first.w,fr,fc,'across');
+  placements[0].clue=first.c;
+
+  // try to intersect each subsequent word
+  for(let wi=1;wi<words.length;wi++){
+    const entry=words[wi];
+    const word=entry.w;
+    let placed=false;
+    const dirs=['across','down'];
+    // try to find intersections with already-placed words
+    for(let attempt=0;attempt<200&&!placed;attempt++){
+      const pIdx=Math.floor(Math.random()*placements.length);
+      const p=placements[pIdx];
+      const crossDir=p.dir==='across'?'down':'across';
+      // pick a letter in the word that matches a letter in the placed word
+      const pi=Math.floor(Math.random()*p.word.length);
+      const pl=p.word[pi];
+      for(let wi2=0;wi2<word.length&&!placed;wi2++){
+        if(word[wi2]!==pl) continue;
+        let r,c;
+        if(crossDir==='down'){
+          r=p.r+pi-(crossDir==='down'?0:wi2);
+          c=p.c+(p.dir==='across'?pi:0);
+          r=p.r+(p.dir==='down'?pi:0)-wi2;
+          // fixed: if p is across, intersection at column p.c+pi; if cross is down, starts at r=p.r-wi2
+          r=(p.dir==='across'?p.r:p.r+pi)-wi2;
+          c=(p.dir==='across'?p.c+pi:p.c);
+        } else {
+          r=(p.dir==='down'?p.r+pi:p.r);
+          c=(p.dir==='down'?p.c:p.c+pi)-wi2;
+        }
+        if(canPlace(word,r,c,crossDir)){
+          place(word,r,c,crossDir);
+          placements[placements.length-1].clue=entry.c;
+          placed=true;
+        }
+      }
+    }
+  }
+
+  // number cells
+  let num=1;
+  placements.sort((a,b)=>a.r!==b.r?a.r-b.r:a.c-b.c);
+  // assign numbers
+  const numbered={};
+  placements.forEach(p=>{
+    const key=`${p.r},${p.c}`;
+    if(!numbered[key]){numbered[key]=num++;grid[p.r][p.c].num=numbered[key];}
+    p.num=numbered[key];
+  });
+
+  return placements.length>=3;
+}
+
+// ── Render ────────────────────────────────────────────────────────────
+function renderGrid(){
+  const container=document.getElementById('cw-grid');
+  container.style.gridTemplateColumns=`repeat(${COLS},auto)`;
+  container.innerHTML='';
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const cell=grid[r][c];
+      const div=document.createElement('div');
+      div.className='cw-cell '+(cell.black?'black':'white');
+      div.dataset.r=r; div.dataset.c=c;
+      if(!cell.black){
+        if(cell.num){const n=document.createElement('div');n.className='cell-num';n.textContent=cell.num;div.appendChild(n);}
+        const inp=document.createElement('input');
+        inp.maxLength=1;
+        inp.value=cell.guess||'';
+        inp.dataset.r=r; inp.dataset.c=c;
+        inp.addEventListener('focus',()=>onCellFocus(r,c));
+        inp.addEventListener('keydown',e=>onKey(e,r,c));
+        inp.addEventListener('input',e=>onInput(e,r,c));
+        div.appendChild(inp);
+        div.addEventListener('click',()=>onCellClick(r,c));
+      }
+      container.appendChild(div);
+    }
+  }
+}
+
+function renderClues(){
+  const across=placements.filter(p=>p.dir==='across').sort((a,b)=>a.num-b.num);
+  const down=placements.filter(p=>p.dir==='down').sort((a,b)=>a.num-b.num);
+  document.getElementById('clues-across').innerHTML=across.map(p=>`
+    <div class="clue-item${p.solved?' solved':''}" id="clue-${p.dir}-${p.num}" onclick="jumpToClue(${p.r},${p.c},'${p.dir}')">
+      <span class="clue-num">${p.num}.</span>${p.clue}
+    </div>`).join('');
+  document.getElementById('clues-down').innerHTML=down.map(p=>`
+    <div class="clue-item${p.solved?' solved':''}" id="clue-${p.dir}-${p.num}" onclick="jumpToClue(${p.r},${p.c},'${p.dir}')">
+      <span class="clue-num">${p.num}.</span>${p.clue}
+    </div>`).join('');
+}
+
+// ── Input handling ────────────────────────────────────────────────────
+function onCellClick(r,c){
+  if(activeCell&&activeCell.r===r&&activeCell.c===c){
+    // toggle direction
+    const otherDir=activeDir==='across'?'down':'across';
+    if(getPlacementAt(r,c,otherDir)) activeDir=otherDir;
+  } else {
+    // pick best direction
+    if(!getPlacementAt(r,c,activeDir)&&getPlacementAt(r,c,activeDir==='across'?'down':'across')){
+      activeDir=activeDir==='across'?'down':'across';
+    }
+  }
+  activeCell={r,c};
+  highlightWord();
+  focusCell(r,c);
+}
+
+function onCellFocus(r,c){
+  activeCell={r,c};
+  highlightWord();
+}
+
+function onInput(e,r,c){
+  const val=e.target.value.toUpperCase().replace(/[^A-Z]/g,'');
+  e.target.value=val.slice(-1)||'';
+  grid[r][c].guess=e.target.value;
+  if(e.target.value) advance(r,c);
+  updateProgress();
+  checkAutoSolve();
+}
+
+function onKey(e,r,c){
+  if(e.key==='Backspace'){
+    if(grid[r][c].guess){grid[r][c].guess='';getInput(r,c).value='';updateProgress();}
+    else retreat(r,c);
+    e.preventDefault();
+  }
+  if(e.key==='ArrowRight'){activeDir='across';advance(r,c);e.preventDefault();}
+  if(e.key==='ArrowLeft'){activeDir='across';retreat(r,c);e.preventDefault();}
+  if(e.key==='ArrowDown'){activeDir='down';advance(r,c);e.preventDefault();}
+  if(e.key==='ArrowUp'){activeDir='down';retreat(r,c);e.preventDefault();}
+  if(e.key==='Tab'){e.preventDefault();nextClue(e.shiftKey);}
+}
+
+function advance(r,c){
+  const dr=activeDir==='down'?1:0,dc=activeDir==='across'?1:0;
+  const nr=r+dr,nc=c+dc;
+  if(nr<ROWS&&nc<COLS&&!grid[nr][nc].black) focusCell(nr,nc);
+}
+function retreat(r,c){
+  const dr=activeDir==='down'?1:0,dc=activeDir==='across'?1:0;
+  const nr=r-dr,nc=c-dc;
+  if(nr>=0&&nc>=0&&!grid[nr][nc].black) focusCell(nr,nc);
+}
+
+function focusCell(r,c){
+  activeCell={r,c};
+  const inp=getInput(r,c);
+  if(inp){inp.focus();inp.select();}
+  highlightWord();
+}
+
+function getInput(r,c){return document.querySelector(`.cw-cell input[data-r="${r}"][data-c="${c}"]`);}
+function getCell(r,c){return document.querySelector(`.cw-cell[data-r="${r}"][data-c="${c}"]`);}
+
+function getPlacementAt(r,c,dir){
+  return placements.find(p=>{
+    if(p.dir!==dir) return false;
+    const dr=dir==='down'?1:0,dc=dir==='across'?1:0;
+    for(let i=0;i<p.word.length;i++){if(p.r+i*dr===r&&p.c+i*dc===c)return true;}
+    return false;
+  });
+}
+
+function highlightWord(){
+  // clear all highlights
+  document.querySelectorAll('.cw-cell.highlight,.cw-cell.active').forEach(el=>{
+    el.classList.remove('highlight','active');
+  });
+  if(!activeCell) return;
+  const {r,c}=activeCell;
+  const p=getPlacementAt(r,c,activeDir)||getPlacementAt(r,c,activeDir==='across'?'down':'across');
+  if(!p) return;
+  const dr=p.dir==='down'?1:0,dc=p.dir==='across'?1:0;
+  for(let i=0;i<p.word.length;i++){
+    const nr=p.r+i*dr,nc=p.c+i*dc;
+    const el=getCell(nr,nc);
+    if(el) el.classList.add(nr===r&&nc===c?'active':'highlight');
+  }
+  // highlight matching clue
+  document.querySelectorAll('.clue-item.active-clue').forEach(el=>el.classList.remove('active-clue'));
+  const clueEl=document.getElementById(`clue-${p.dir}-${p.num}`);
+  if(clueEl){clueEl.classList.add('active-clue');clueEl.scrollIntoView({block:'nearest'});}
+  activeDir=p.dir;
+}
+
+function jumpToClue(r,c,dir){
+  activeDir=dir;
+  focusCell(r,c);
+}
+
+function nextClue(reverse){
+  const sorted=placements.slice().sort((a,b)=>a.num!==b.num?a.num-b.num:a.dir.localeCompare(b.dir));
+  const cur=sorted.findIndex(p=>{
+    const dp=getPlacementAt(activeCell?.r,activeCell?.c,activeDir);
+    return dp&&dp.num===p.num&&dp.dir===p.dir;
+  });
+  const next=((cur+(reverse?-1:1))+sorted.length)%sorted.length;
+  const p=sorted[next];
+  activeDir=p.dir;
+  focusCell(p.r,p.c);
+}
+
+// ── Check / reveal ────────────────────────────────────────────────────
+function checkAll(){
+  document.querySelectorAll('.cw-cell.white').forEach(el=>{
+    el.classList.remove('correct','wrong');
+    const r=+el.dataset.r,c=+el.dataset.c;
+    const cell=grid[r][c];
+    if(cell.guess){
+      el.classList.add(cell.guess===cell.letter?'correct':'wrong');
+    }
+  });
+}
+
+function revealAll(){
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
+    if(!grid[r][c].black){
+      grid[r][c].guess=grid[r][c].letter;
+      const inp=getInput(r,c);
+      if(inp) inp.value=grid[r][c].letter;
+      getCell(r,c)?.classList.add('correct');
+    }
+  }
+  updateProgress(true);
+}
+
+function checkAutoSolve(){
+  const allFilled=placements.every(p=>{
+    const dr=p.dir==='down'?1:0,dc=p.dir==='across'?1:0;
+    for(let i=0;i<p.word.length;i++){
+      if(grid[p.r+i*dr][p.c+i*dc].guess!==p.word[i]) return false;
+    }
+    return true;
+  });
+  if(allFilled){
+    setTimeout(()=>{
+      const elapsed=startTime?Math.round((Date.now()-startTime)/1000):0;
+      const mins=Math.floor(elapsed/60),secs=elapsed%60;
+      document.getElementById('win-sub').textContent=startTime?`Solved in ${mins}m ${secs}s!`:'Puzzle complete!';
+      document.getElementById('win-overlay').classList.add('show');
+    },300);
+  }
+}
+
+function updateProgress(force){
+  let solved=0, total=placements.length;
+  placements.forEach(p=>{
+    const dr=p.dir==='down'?1:0,dc=p.dir==='across'?1:0;
+    let ok=true;
+    for(let i=0;i<p.word.length;i++){
+      if(grid[p.r+i*dr][p.c+i*dc].guess!==p.word[i]){ok=false;break;}
+    }
+    if(ok){solved++;p.solved=true;} else p.solved=false;
+  });
+  document.getElementById('prog-text').textContent=`${solved} / ${total} words`;
+  document.getElementById('prog-fill').style.width=total?(solved/total*100)+'%':'0%';
+  // update clue strikethrough
+  placements.forEach(p=>{
+    const el=document.getElementById(`clue-${p.dir}-${p.num}`);
+    if(el) el.classList.toggle('solved',!!p.solved);
+  });
+}
+
+// ── New puzzle ────────────────────────────────────────────────────────
+function newPuzzle(){
+  let ok=false, tries=0;
+  while(!ok&&tries<10){ok=buildGrid();tries++;}
+  renderGrid();
+  renderClues();
+  activeCell=null; activeDir='across';
+  startTime=Date.now();
+  updateProgress();
+  // focus first across
+  const first=placements.filter(p=>p.dir==='across').sort((a,b)=>a.num-b.num)[0];
+  if(first){activeDir='across';focusCell(first.r,first.c);}
+}
+
+newPuzzle();
+</script>
+</body>
+</html>
