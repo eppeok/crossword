@@ -308,15 +308,13 @@ function buildGrid(){
         if(word[wi2]!==pl) continue;
         let r,c;
         if(crossDir==='down'){
-          r=p.r+pi-(crossDir==='down'?0:wi2);
-          c=p.c+(p.dir==='across'?pi:0);
-          r=p.r+(p.dir==='down'?pi:0)-wi2;
-          // fixed: if p is across, intersection at column p.c+pi; if cross is down, starts at r=p.r-wi2
-          r=(p.dir==='across'?p.r:p.r+pi)-wi2;
-          c=(p.dir==='across'?p.c+pi:p.c);
+          // p is 'across': intersection at p.c+pi; new down-word starts wi2 rows above
+          r=p.r-wi2;
+          c=p.c+pi;
         } else {
-          r=(p.dir==='down'?p.r+pi:p.r);
-          c=(p.dir==='down'?p.c:p.c+pi)-wi2;
+          // p is 'down': intersection at p.r+pi; new across-word starts wi2 cols left
+          r=p.r+pi;
+          c=p.c-wi2;
         }
         if(canPlace(word,r,c,crossDir)){
           place(word,r,c,crossDir);
